@@ -10,6 +10,7 @@ import { promisify } from "util";
 import {readFile as orf, writeFile, writeFileSync} from "fs";
 import { join } from "path";
 import { generateKeyPair } from "crypto";
+import {create} from "domain";
 
 generateKeyPair(`rsa`,{
     modulusLength: 4096,
@@ -55,8 +56,12 @@ const getFileContents = async(fileName: string) => {
 
 const createFile = async(fileName: string): Promise<boolean> => {
     let createFile: ChildProcessWithoutNullStreams = spawn(`touch`,[fileName]);
-    if (createFile.exitCode === 0) {
-        console.log(`File ${fileName} created.`);
+    if(createFile?.exitCode === null) {
+        console.log(`File ${fileName} created.
+        Metadata:{
+            exit: ${createFile.exitCode},  
+            pid: ${createFile.pid}
+        }`);
         return true;
     } else {
         return false;
