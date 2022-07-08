@@ -7,7 +7,7 @@ import {
     ChildProcessWithoutNullStreams
 } from "child_process";
 import { promisify } from "util";
-import { readFile as orf, writeFile } from "fs";
+import {readFile as orf, writeFile, writeFileSync} from "fs";
 import { join } from "path";
 import { generateKeyPair } from "crypto";
 
@@ -23,16 +23,22 @@ generateKeyPair(`rsa`,{
         cipher: `aes-256-cbc`,
         passphrase: `s3cr3t`
     }
-},(err, publicKey,privateKey) => {
+},async(err, publicKey,privateKey): Promise<boolean|Error> => {
+    let pubKeyDescriptor: string = `pubKey.pem`;
+    let privKeyDescriptor: string = `privKey.pem`;
     if (err == undefined) {
-        const data = {
-            publicKey,
-            privateKey
-        };
-        return data;
+        await createFile(join(__dirname,pubKeyDescriptor));
+        await createFile(join(__dirname,privKeyDescriptor));
+        let validKeyFormat: boolean = !!publicKey && !!privateKey;
+        if (validKeyFormat) {
+            writeFileSync(pubKeyDescriptor,publicKey,'utf-8');
+            writeFileSync(privKeyDescriptor,privateKey,'utf-8');
+            return true;
+        } else {
+            return false;
+        }
     } else {
-        console.log(err as any);
-        return(err as any)
+        return(err as any);
     }
 });
 

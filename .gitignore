@@ -5,3 +5,4 @@ build
 *.pem
 .env
 *.log[s]
+.idea
