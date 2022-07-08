@@ -7,10 +7,9 @@ import {
     ChildProcessWithoutNullStreams
 } from "child_process";
 import { promisify } from "util";
-import {readFile as orf, writeFile, writeFileSync} from "fs";
+import {readFile as orf, writeFileSync} from "fs";
 import { join } from "path";
 import { generateKeyPair } from "crypto";
-import {create} from "domain";
 
 generateKeyPair(`rsa`,{
     modulusLength: 4096,
@@ -26,14 +25,25 @@ generateKeyPair(`rsa`,{
     }
 },async(err, publicKey,privateKey): Promise<boolean|Error> => {
     let pubKeyDescriptor: string = `pubKey.pem`;
+
     let privKeyDescriptor: string = `privKey.pem`;
+
     if (err == undefined) {
-        await createFile(join(__dirname,pubKeyDescriptor));
-        await createFile(join(__dirname,privKeyDescriptor));
+        let createPk: boolean = await createFile(join(__dirname,pubKeyDescriptor));
+
+        let createPvk: boolean = await createFile(join(__dirname,privKeyDescriptor));
+
+        await Promise.all([createPk,createPvk]);
+
         let validKeyFormat: boolean = !!publicKey && !!privateKey;
+
         if (validKeyFormat) {
-            writeFileSync(pubKeyDescriptor,publicKey,'utf-8');
-            writeFileSync(privKeyDescriptor,privateKey,'utf-8');
+            let writePkContent: void = writeFileSync(pubKeyDescriptor,publicKey,'utf-8');
+
+            let writePvkContent: void = writeFileSync(privKeyDescriptor,privateKey,'utf-8');
+
+            await Promise.all([writePkContent,writePvkContent]);
+
             return true;
         } else {
             return false;
