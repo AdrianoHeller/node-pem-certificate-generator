@@ -1,15 +1,31 @@
 import {
     exec as unpromisedExec,
     spawn,
-    fork,
-    PromiseWithChild,
-    ChildProcess,
     ChildProcessWithoutNullStreams
 } from "child_process";
 import { promisify } from "util";
-import {readFile as orf, writeFileSync} from "fs";
+import {readFile as orf, writeFile} from "fs";
 import { join } from "path";
 import { generateKeyPair } from "crypto";
+import {createLogger, format, transports} from "winston";
+
+const logger = createLogger({
+    level:process.env.LOG_LEVEL,
+    format: format.json(),
+    defaultMeta: {
+        service: process.env.SERVICE_NAME,
+    },
+    transports: [
+        new transports.File({filename:process.env.ERROR_LOG_FILE,level: process.env.ERROR_LOG_LEVEL}),
+        new transports.File({filename:process.env.COMBINED_LOG_FILE}),
+    ],
+});
+
+if (process.env.NODE_ENV != `production`) {
+    logger.add(new transports.Console({
+        format: format.simple(),
+    }))
+}
 
 generateKeyPair(`rsa`,{
     modulusLength: 4096,
@@ -23,7 +39,7 @@ generateKeyPair(`rsa`,{
         cipher: `aes-256-cbc`,
         passphrase: `s3cr3t`
     }
-},async(err, publicKey,privateKey): Promise<boolean|Error> => {
+},async(err: Error | null, publicKey: string,privateKey: string): Promise<boolean|Error> => {
     let pubKeyDescriptor: string = `pubKey.pem`;
 
     let privKeyDescriptor: string = `privKey.pem`;
@@ -38,11 +54,9 @@ generateKeyPair(`rsa`,{
         let validKeyFormat: boolean = !!publicKey && !!privateKey;
 
         if (validKeyFormat) {
-            let writePkContent: void = writeFileSync(pubKeyDescriptor,publicKey,'utf-8');
+            await writeFile(pubKeyDescriptor,publicKey,() => logger.info(`PUB written`));
 
-            let writePvkContent: void = writeFileSync(privKeyDescriptor,privateKey,'utf-8');
-
-            await Promise.all([writePkContent,writePvkContent]);
+            await writeFile(privKeyDescriptor,privateKey,() => logger.info(`PK written`));
 
             return true;
         } else {
@@ -67,7 +81,7 @@ const getFileContents = async(fileName: string) => {
 const createFile = async(fileName: string): Promise<boolean> => {
     let createFile: ChildProcessWithoutNullStreams = spawn(`touch`,[fileName]);
     if(createFile?.exitCode === null) {
-        console.log(`File ${fileName} created.
+        logger.info(`File ${fileName} created.
         Metadata:{
             exit: ${createFile.exitCode},  
             pid: ${createFile.pid}
@@ -80,8 +94,8 @@ const createFile = async(fileName: string): Promise<boolean> => {
 
 const execCommand = async(commandArray: string) => {
     const { stdout, stderr } = await exec(commandArray);
-    console.log(stdout);
-    console.log(stderr);
+    logger.info(stdout);
+    logger.error(stderr);
 };
 
 
